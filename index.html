@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Тренажер ЕГЭ по обществознанию — вторая часть. Задания 18, 19, 20, 22, 25 с методическими подсказками.">
+    <title>ЕГЭ Общество: Part 2 PRO</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">ЕГЭ Общество<br><span class="logo-accent">Part 2 PRO</span></h1>
+                <p class="logo-sub">Офлайн · Без ИИ · 2026</p>
+            </div>
+
+            <div class="skill-bars">
+                <div class="skill-bar">
+                    <span class="skill-label">🧠 Теоретик</span>
+                    <div class="skill-track"><div class="skill-fill" id="skill-theorist" style="width:0%"></div></div>
+                </div>
+                <div class="skill-bar">
+                    <span class="skill-label">⚖️ Юрист</span>
+                    <div class="skill-track"><div class="skill-fill skill-fill-blue" id="skill-lawyer" style="width:0%"></div></div>
+                </div>
+                <div class="skill-bar">
+                    <span class="skill-label">🔗 Логик</span>
+                    <div class="skill-track"><div class="skill-fill skill-fill-purple" id="skill-logic" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <p class="nav-group-title">Мой профиль</p>
+                <button class="nav-btn" data-task="stats" id="nav-stats">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text"><strong>Статистика</strong><small>Прогресс и опыт</small></span>
+                </button>
+
+                <p class="nav-group-title">Базовые навыки</p>
+                <button class="nav-btn active" data-task="18" id="nav-18">
+                    <span class="nav-icon">📖</span>
+                    <span class="nav-text"><strong>Задание 18</strong><small>Термины</small></span>
+                </button>
+                <button class="nav-btn" data-task="19" id="nav-19">
+                    <span class="nav-icon">🧩</span>
+                    <span class="nav-text"><strong>Задание 19</strong><small>Примеры</small></span>
+                </button>
+                <button class="nav-btn" data-task="20" id="nav-20">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-text"><strong>Задание 20</strong><small>Аргументы</small></span>
+                </button>
+
+                <p class="nav-group-title">Анализ и право</p>
+                <button class="nav-btn" data-task="22" id="nav-22">
+                    <span class="nav-icon">💼</span>
+                    <span class="nav-text"><strong>Задание 22</strong><small>Кейсы</small></span>
+                </button>
+
+                <p class="nav-group-title">Комплексные</p>
+                <button class="nav-btn" data-task="25" id="nav-25">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-text"><strong>Задание 25</strong><small>Финальный босс</small></span>
+                </button>
+
+                <p class="nav-group-title">Справочные материалы</p>
+                <button class="nav-btn" id="nav-rf-facts">
+                    <span class="nav-icon">🇷🇺</span>
+                    <span class="nav-text"><strong>Банк фактов РФ</strong><small>Для 19 и 25 заданий</small></span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Mobile nav toggle -->
+        <button id="mobile-toggle" class="mobile-toggle" aria-label="Меню">☰</button>
+
+        <!-- Main content -->
+        <main id="main-content">
+            <div id="task-container"></div>
+        </main>
+    </div>
+
+    <!-- Success animation overlay -->
+    <div id="success-overlay" class="success-overlay hidden">
+        <div class="success-content">
+            <div class="success-emoji">🎉</div>
+            <p class="success-text">ОТЛИЧНО!</p>
+        </div>
+    </div>
+
+    <!-- RF Facts Modal -->
+    <div id="rf-facts-modal" class="modal-overlay hidden">
+        <div class="modal-content rf-facts-content">
+            <div class="modal-header">
+                <h2>🇷🇺 Банк фактов РФ (Золотой стандарт)</h2>
+                <button id="close-rf-facts" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="facts-filters" id="facts-filters">
+                    <!-- Filters -->
+                </div>
+                <div class="facts-list" id="facts-list">
+                    <!-- Facts -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="rf_facts.js"></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
