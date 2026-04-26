@@ -533,21 +533,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTask22() {
         let currentItem = Math.floor(Math.random() * CASE_22_LIST.length);
         let currentQ = 0;
-        let selectedMarker = null;
+        let selectedSentence = null;
         let selectedOption = null;
         
         const renderContent = () => {
             const CASE_22 = CASE_22_LIST[currentItem];
+            const q = CASE_22.questions[currentQ];
+            const needsTextSelection = q.needsTextSelection !== undefined ? q.needsTextSelection : true;
+            
             let caseHtml = CASE_22.text;
-            Object.keys(CASE_22.markers).forEach(k => {
-                let mTexts = CASE_22.markers[k];
-                if (!Array.isArray(mTexts)) mTexts = [mTexts];
-                mTexts.forEach(mText => {
-                    const escaped = mText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(escaped, 'gi');
-                    caseHtml = caseHtml.replace(regex, match => `<span class="highlight-word" data-mid="${k}">${match}</span>`);
+            if (needsTextSelection) {
+                const sentenceRegex = /([^\.!\?]+[\.!\?]+)/g;
+                caseHtml = caseHtml.text ? caseHtml.text : caseHtml.replace(sentenceRegex, match => {
+                    const cleanText = match.trim().replace(/"/g, '&quot;');
+                    return `<span class="highlight-word" data-text="${cleanText}">${match}</span>`;
                 });
-            });
+            }
             
             return `
             <h2 class="task-title">Задание 22</h2>
@@ -568,11 +569,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="expert-box mt-16">
                     <div class="expert-header">Вопрос ${currentQ + 1} из ${CASE_22.questions.length}</div>
                     <div class="expert-body" style="background:var(--card);">
-                        <p style="font-weight:700; margin-bottom: 8px;">${CASE_22.questions[currentQ].q}</p>
-                        <p class="field-hint mb-12">🎯 Шаг 1: Кликни на фразу-подсказку в тексте сверху</p>
+                        <p style="font-weight:700; margin-bottom: 8px;">${q.q}</p>
+                        ${needsTextSelection ? `<p class="field-hint mb-12" id="t22-hint">🎯 Шаг 1: Кликни на предложение-подсказку в тексте сверху</p>` : `<p class="field-hint mb-12" id="t22-hint">💡 Найдите ответ самостоятельно на основе теории и текста</p>`}
                         <div id="t22-options" class="mb-16">
-                            ${CASE_22.questions[currentQ].options.length > 0 ? 
-                                CASE_22.questions[currentQ].options.map(opt => `
+                            ${(q.options && q.options.length > 0) ? 
+                                q.options.map(opt => `
                                     <button class="option-btn" data-opt="${opt}">${opt}</button>
                                 `).join('') :
                                 `<textarea class="textarea" id="t22-open-answer" placeholder="Напишите развернутый ответ (или назовите акт)..."></textarea>`
@@ -594,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('t22-selector').addEventListener('change', (e) => {
                 currentItem = parseInt(e.target.value);
                 currentQ = 0;
-                selectedMarker = null;
+                selectedSentence = null;
                 selectedOption = null;
                 taskContainer.innerHTML = renderContent();
                 bindEvents();
@@ -608,11 +609,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const alertBox = document.getElementById('t22-alert');
             
             const checkEnableSubmit = () => {
-                const hasOptionOrText = CASE_22.questions[currentQ].options.length > 0 
+                const q = CASE_22.questions[currentQ];
+                const needsTextSelection = q.needsTextSelection !== undefined ? q.needsTextSelection : true;
+                const hasOptionOrText = (q.options && q.options.length > 0)
                     ? selectedOption !== null 
                     : (openAnswer && openAnswer.value.trim() !== '');
                     
-                if(selectedMarker !== null && hasOptionOrText) {
+                if((!needsTextSelection || selectedSentence !== null) && hasOptionOrText) {
                     submitBtn.disabled = false;
                 } else {
                     submitBtn.disabled = true;
@@ -623,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 m.addEventListener('click', (e) => {
                     caseMarkers.forEach(mm => mm.classList.remove('marked'));
                     e.target.classList.add('marked');
-                    selectedMarker = e.target.dataset.mid;
+                    selectedSentence = e.target.dataset.text;
                     checkEnableSubmit();
                 });
             });
@@ -644,9 +647,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if(submitBtn) {
                 submitBtn.addEventListener('click', () => {
                     const q = CASE_22.questions[currentQ];
-                    const hasOptions = q.options.length > 0;
+                    const hasOptions = q.options && q.options.length > 0;
+                    const needsTextSelection = q.needsTextSelection !== undefined ? q.needsTextSelection : true;
                     
-                    const isMarkerCorrect = (parseInt(selectedMarker) === currentQ);
+                    let isMarkerCorrect = true;
+                    if (needsTextSelection) {
+                        isMarkerCorrect = false;
+                        let validMarkers = q.correctMarkers;
+                        if (!validMarkers) {
+                            validMarkers = [];
+                            Object.values(CASE_22.markers || {}).forEach(mTexts => {
+                                if (!Array.isArray(mTexts)) mTexts = [mTexts];
+                                validMarkers = validMarkers.concat(mTexts);
+                            });
+                        }
+                        
+                        for (let mText of validMarkers) {
+                            if (selectedSentence && selectedSentence.toLowerCase().includes(mText.toLowerCase())) {
+                                isMarkerCorrect = true;
+                                break;
+                            }
+                        }
+                    }
+                    
                     let isOptionCorrect = true;
                     
                     if (hasOptions) {
@@ -656,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     alertBox.className = 'alert mt-16';
                     if(!isMarkerCorrect) {
                         alertBox.classList.add('alert-error');
-                        alertBox.innerHTML = `<span class="alert-icon">❌</span><span>Ошибка! Маркер в тексте выбран неверно.</span>`;
+                        alertBox.innerHTML = `<span class="alert-icon">❌</span><span>Ошибка! Предложение в тексте выбрано неверно.</span>`;
                         userStats.mistakes++; saveStats();
                     } else if (hasOptions && !isOptionCorrect) {
                         alertBox.classList.add('alert-error');
@@ -669,6 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             alertBox.innerHTML = `<span class="alert-icon">✅</span><span>Маркер найден верно! Сверьте свой ответ с эталоном:<br><br><strong>Правильный ответ:</strong> ${q.a}<br><strong>Пояснение:</strong> ${q.exp}</span>`;
                         }
+                        
+                        if (!needsTextSelection && q.highlightOnSuccess && q.highlightOnSuccess.length > 0) {
+                            let highlightedText = CASE_22.text;
+                            q.highlightOnSuccess.forEach(phrase => {
+                                const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                const regex = new RegExp(escaped, 'gi');
+                                highlightedText = highlightedText.replace(regex, match => `<span class="highlight-word marked" style="cursor:default; font-weight:700;">${match}</span>`);
+                            });
+                            document.getElementById('t22-case').innerHTML = highlightedText;
+                        }
+                        
                         submitBtn.classList.add('hidden');
                         nextBtn.classList.remove('hidden');
                         updateSkill('lawyer', 15);
@@ -680,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nextBtn.addEventListener('click', () => {
                     currentQ++;
                     if(currentQ < CASE_22.questions.length) {
-                        selectedMarker = null;
+                        selectedSentence = null;
                         selectedOption = null;
                         taskContainer.innerHTML = renderContent();
                         bindEvents();

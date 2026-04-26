@@ -559,15 +559,22 @@ select.input {
 }
 
 .case-text .highlight-word {
-  background: var(--yellow);
-  border-bottom: 3px solid var(--text);
-  padding: 0 2px;
+  /* Убираем явную желтую подсветку по умолчанию, чтобы не спойлерить ответы */
+  border-radius: 4px;
+  padding: 2px 4px;
   cursor: pointer;
-  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.case-text .highlight-word:hover {
+  /* Легкая серая подсветка при наведении, чтобы можно было найти маркер */
+  background: rgba(0,0,0,0.05);
 }
 
 .case-text .highlight-word.marked {
   background: var(--green);
+  font-weight: 700;
+  border-bottom: 2px solid var(--text);
 }
 
 /* === SUCCESS OVERLAY === */
