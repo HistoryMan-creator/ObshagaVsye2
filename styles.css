@@ -859,3 +859,41 @@ select.input {
   font-size: 14px;
   line-height: 1.5;
 }
+
+/* === MUSIC TOGGLE === */
+.music-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--yellow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s;
+}
+
+.music-toggle:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow);
+}
+
+.music-toggle:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.music-toggle.playing {
+  background: var(--green);
+}
+
+.music-icon {
+  font-size: 22px;
+}
+

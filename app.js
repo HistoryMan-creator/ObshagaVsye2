@@ -890,6 +890,28 @@ document.addEventListener('DOMContentLoaded', () => {
         renderRfFacts();
     };
 
+    // Music Player Logic
+    const musicToggle = document.getElementById('music-toggle');
+    const bgMusic = document.getElementById('bg-music');
+    
+    if (musicToggle && bgMusic) {
+        musicToggle.addEventListener('click', () => {
+            if (bgMusic.paused) {
+                bgMusic.play().then(() => {
+                    musicToggle.classList.add('playing');
+                    musicToggle.querySelector('.music-icon').textContent = '🔊';
+                }).catch(err => {
+                    console.error("Error playing music:", err);
+                });
+            } else {
+                bgMusic.pause();
+                musicToggle.classList.remove('playing');
+                musicToggle.querySelector('.music-icon').textContent = '🎵';
+            }
+        });
+    }
+
     // Initialize first view
     renderTask('18');
 });
+

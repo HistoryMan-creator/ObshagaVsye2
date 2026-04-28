@@ -8,62 +8,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <style>
-        /* Стили для кнопки музыки */
-        .music-toggle {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            background: #FFFFFF;
-            border: 2px solid #E5E7EB;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            cursor: pointer;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            transition: all 0.2s ease;
-            color: #1A1A2E;
-        }
-        .music-toggle:hover {
-            background: #F4F4F9;
-            border-color: #2AB7CA; /* Голубой цвет сайта при наведении */
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
-        }
-        .music-toggle.playing {
-            border-color: #FE4A90; /* Розовый цвет при проигрывании */
-            background: #FFF1F2;
-            animation: pulse-music 2s infinite;
-        }
-        .music-toggle.playing .music-icon {
-            animation: bounce-icon 1s infinite alternate;
-        }
-        @keyframes pulse-music {
-            0% { box-shadow: 0 0 0 0 rgba(254, 74, 144, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(254, 74, 144, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(254, 74, 144, 0); }
-        }
-        @keyframes bounce-icon {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-3px) scale(1.1); }
-        }
-        
-        /* Адаптация под мобильные устройства */
-        @media (max-width: 768px) {
-            .music-toggle {
-                top: 16px;
-                right: 16px;
-                width: 44px;
-                height: 44px;
-                font-size: 1.2rem;
-            }
-        }
-    </style>
 </head>
 <body>
     <div id="app">
@@ -471,7 +415,7 @@
     <button id="music-toggle" class="music-toggle" aria-label="Включить музыку">
         <span class="music-icon">🎵</span>
     </button>
-    <audio id="bg-music" src="2.mp3" loop preload="auto" style="display:none;"></audio>
+    <audio id="bg-music" src="2.mp3" loop preload="auto"></audio>
 
     <!-- Success animation overlay -->
     <div id="success-overlay" class="success-overlay hidden">
