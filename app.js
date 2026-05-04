@@ -10,10 +10,32 @@ document.addEventListener('DOMContentLoaded', () => {
         completed: { '18': 0, '19': 0, '20': 0, '22': 0, '25': 0 },
         skills: { theorist: 0, lawyer: 0, logic: 0 },
         mistakes: 0,
-        perfect: 0
+        perfect: 0,
+        answerHistory: []
     };
     
-    let userStats = JSON.parse(localStorage.getItem('obsh_stats')) || defaultStats;
+    const ANSWER_HISTORY_LIMIT = 50;
+
+    function normalizeStats(stats) {
+        const source = stats && typeof stats === 'object' ? stats : {};
+        return {
+            completed: { ...defaultStats.completed, ...(source.completed || {}) },
+            skills: { ...defaultStats.skills, ...(source.skills || {}) },
+            mistakes: Number(source.mistakes || 0),
+            perfect: Number(source.perfect || 0),
+            answerHistory: Array.isArray(source.answerHistory) ? source.answerHistory : []
+        };
+    }
+
+    function loadStats() {
+        try {
+            return normalizeStats(JSON.parse(localStorage.getItem('obsh_stats')));
+        } catch (e) {
+            return normalizeStats(defaultStats);
+        }
+    }
+
+    let userStats = loadStats();
     
     function saveStats() {
         localStorage.setItem('obsh_stats', JSON.stringify(userStats));
@@ -116,10 +138,69 @@ document.addEventListener('DOMContentLoaded', () => {
             </ul>
         `;
     }
+
+    function createFipiStatus(title, status, details) {
+        const classes = {
+            accepted: 'alert-tip',
+            rejected: 'alert-error',
+            extra: 'alert-warn'
+        };
+        const labels = {
+            accepted: 'засчитывается',
+            rejected: 'не засчитывается',
+            extra: 'есть лишняя/ошибочная позиция'
+        };
+        const icons = {
+            accepted: '✅',
+            rejected: '❌',
+            extra: '⚠️'
+        };
+        return `
+            <div class="alert ${classes[status]} mb-8" style="padding:10px;">
+                <span class="alert-icon">${icons[status]}</span>
+                <span><strong>${title}:</strong> ${labels[status]}. ${details}</span>
+            </div>
+        `;
+    }
+
+    function splitAnswerPositions(text) {
+        return text
+            .split(/\n|;/)
+            .map(item => item.replace(/^\s*(\d+[\).:-]?|[-–—])\s*/, '').trim())
+            .filter(Boolean);
+    }
+
+    function wordCount(text) {
+        return (text.trim().match(/[A-Za-zА-Яа-яЁё0-9]+/g) || []).length;
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function recordAnswer(task, title, answer, verdict) {
+        userStats.answerHistory = userStats.answerHistory || [];
+        userStats.answerHistory.unshift({
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            date: new Date().toISOString(),
+            task,
+            title,
+            answer,
+            verdict
+        });
+        userStats.answerHistory = userStats.answerHistory.slice(0, ANSWER_HISTORY_LIMIT);
+        saveStats();
+    }
     
     function renderStats() {
         const totalCompleted = Object.values(userStats.completed).reduce((a, b) => a + b, 0);
         const calcLevel = xp => Math.floor(xp / 100) + 1;
+        const recentAnswers = (userStats.answerHistory || []).slice(0, 10);
         
         taskContainer.innerHTML = `
             <h2 class="task-title">Моя статистика</h2>
@@ -180,11 +261,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <button class="btn btn-red mt-16" id="reset-stats">Сбросить прогресс</button>
             </div>
+
+            <div class="card card-blue mt-16">
+                <h3 class="section-title mb-16">Последние ответы</h3>
+                ${recentAnswers.length ? recentAnswers.map(item => `
+                    <div class="expert-box mb-12">
+                        <div class="expert-header">№ ${escapeHtml(item.task)} · ${escapeHtml(item.title)} · ${escapeHtml(item.verdict)}</div>
+                        <div class="expert-body">
+                            <div class="field-hint mb-8">${new Date(item.date).toLocaleString('ru-RU')}</div>
+                            <pre style="white-space:pre-wrap; font-family:inherit; margin:0;">${escapeHtml(item.answer)}</pre>
+                        </div>
+                    </div>
+                `).join('') : '<p class="field-hint">Пока нет сохранённых ответов. Они появятся здесь после проверки заданий 18, 19, 20, 22 и 25.</p>'}
+            </div>
         `;
         
         document.getElementById('reset-stats').addEventListener('click', () => {
             if(confirm("Вы уверены, что хотите полностью сбросить всю статистику? Это действие необратимо.")) {
-                userStats = { completed: {'18':0, '19':0, '20':0, '22':0, '25':0}, skills: {theorist:0, lawyer:0, logic:0}, mistakes: 0, perfect: 0 };
+                userStats = normalizeStats(defaultStats);
                 saveStats();
                 renderStats();
             }
@@ -266,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('t18-check').addEventListener('click', () => {
                 const features = Array.from(document.querySelectorAll('.t18-feature')).map(input => input.value.trim()).filter(val => val.length > 0);
                 const connection = document.getElementById('t18-connection').value.trim();
+                const answerText = `Признаки:\n${features.map((feature, i) => `${i + 1}) ${feature}`).join('\n') || 'Не заполнено'}\n\nСвязь:\n${connection || 'Не заполнено'}`;
                 const alertBox = document.getElementById('t18-alert');
                 
                 alertBox.className = 'alert mt-16';
@@ -273,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (features.length < 3) {
                     alertBox.classList.add('alert-warn');
                     alertBox.innerHTML = '<span class="alert-icon">⚠️</span><span>Необходимо написать минимум 3 признака!</span>';
+                    recordAnswer('18', selectedTerm, answerText, 'не засчитано');
                     userStats.mistakes++; saveStats();
                     return;
                 }
@@ -280,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (connection.split(' ').length < 5) {
                     alertBox.classList.add('alert-error');
                     alertBox.innerHTML = `<span class="alert-icon">❌</span><span>Объяснение связи слишком короткое. Раскройте мысль подробнее!</span>`;
+                    recordAnswer('18', selectedTerm, answerText, 'не засчитано');
                     userStats.mistakes++; saveStats();
                     return;
                 }
@@ -289,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (allText.includes(p)) {
                         alertBox.classList.add('alert-error');
                         alertBox.innerHTML = `<span class="alert-icon">⛔</span><span>Стоп! Найден паразит "${p}". Эксперт снимет балл!</span>`;
+                        recordAnswer('18', selectedTerm, answerText, 'не засчитано');
                         userStats.mistakes++; saveStats();
                         return;
                     }
@@ -298,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alertBox.innerHTML = '<span class="alert-icon">✅</span><span>Формат соблюден! Сверьте свой ответ с эталоном эксперта.</span>';
                 document.getElementById('t18-expert-block').classList.remove('hidden');
                 
+                recordAnswer('18', selectedTerm, answerText, 'засчитано');
                 userStats.perfect++;
                 userStats.completed['18']++;
                 saveStats();
@@ -415,6 +514,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     examplesSubmitted.push({ subject: s, action: a, result: r });
                     
                     if(examplesSubmitted.length === 3) {
+                        const answerText = examplesSubmitted
+                            .map((ex, i) => `${i + 1}) ${ex.subject} ${ex.action} ${ex.result}`)
+                            .join('\n\n');
+                        recordAnswer('19', activeSphere, answerText, 'засчитано по структуре');
                         userStats.perfect++;
                         userStats.completed['19']++;
                         saveStats();
@@ -434,6 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TASK 20 (Arguments) ---
     function renderTask20() {
         let currentItem = Math.floor(Math.random() * TASK_20_DATA_LIST.length);
+        let passedCurrent = false;
         
         const renderContent = () => {
             const TASK_20_DATA = TASK_20_DATA_LIST[currentItem];
@@ -460,16 +564,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="field">
-                    <label class="field-label">Напиши аргумент (Теория!)</label>
+                    <label class="field-label">Напиши 3 теоретических суждения. Каждое — отдельным аргументом.</label>
                     <div class="chip-row">
-                        ${TASK_20_DATA.connectors.map(c => `<button class="chip" onclick="document.getElementById('t20-arg').value+=' ${c} '">${c}</button>`).join('')}
+                        ${TASK_20_DATA.connectors.map(c => `<button class="chip" onclick="const el=Array.from(document.querySelectorAll('.t20-arg')).find(t=>!t.value.trim())||document.getElementById('t20-arg-1'); el.value+=' ${c} '; el.focus();">${c}</button>`).join('')}
                     </div>
-                    <textarea class="textarea" id="t20-arg" placeholder="Напиши теоретическое суждение..." style="min-height: 150px;"></textarea>
+                    <textarea class="textarea t20-arg" id="t20-arg-1" placeholder="Аргумент 1: тезис -> механизм -> микровывод..." style="min-height: 105px;"></textarea>
+                    <textarea class="textarea t20-arg" id="t20-arg-2" placeholder="Аргумент 2: другая теоретическая линия, без фактического примера..." style="min-height: 105px;"></textarea>
+                    <textarea class="textarea t20-arg" id="t20-arg-3" placeholder="Аргумент 3: ещё одно самостоятельное суждение..." style="min-height: 105px;"></textarea>
                 </div>
                 
                 <div id="t20-alert" class="hidden"></div>
                 
-                <button class="btn btn-dark mt-16" id="t20-check">Проверить на фактологию</button>
+                <button class="btn btn-dark mt-16" id="t20-check">Проверить по критериям ФИПИ</button>
                 
                 <div id="t20-expert" class="hidden mt-16">
                     <div class="expert-box">
@@ -487,41 +593,57 @@ document.addEventListener('DOMContentLoaded', () => {
             const TASK_20_DATA = TASK_20_DATA_LIST[currentItem];
             document.getElementById('t20-selector').addEventListener('change', (e) => {
                 currentItem = parseInt(e.target.value);
+                passedCurrent = false;
                 taskContainer.innerHTML = renderContent();
                 bindEvents();
             });
             
             document.getElementById('t20-check').addEventListener('click', () => {
-                const text = document.getElementById('t20-arg').value.toLowerCase();
+                const rawArgs = Array.from(document.querySelectorAll('.t20-arg')).map(input => input.value.trim());
                 const alertBox = document.getElementById('t20-alert');
                 alertBox.className = 'alert mt-16';
                 
-                if(!text.trim()) return;
-                
-                for(let word of TASK_20_DATA.forbiddenWords) {
-                    if(text.includes(word)) {
-                        alertBox.classList.add('alert-error');
-                        alertBox.innerHTML = `<span class="alert-icon">⛔</span><span>Стоп! В 20 задании нельзя приводить факты. Найдено: "${word}". Используй только теоретические суждения!</span>`;
-                        userStats.mistakes++; saveStats();
-                        return;
+                const filledArgs = rawArgs.filter(Boolean);
+                const factMarkers = (TASK_20_DATA.forbiddenWords || []).filter(word => word !== 'например');
+                const statuses = rawArgs.map((arg, index) => {
+                    const lower = arg.toLowerCase();
+                    const forbidden = factMarkers.find(word => lower.includes(word));
+                    if (!arg) {
+                        return createFipiStatus(`Аргумент ${index + 1}`, 'rejected', 'Позиция отсутствует.');
                     }
-                }
-                
-                if(text.length < 30) {
+                    if (forbidden) {
+                        return createFipiStatus(`Аргумент ${index + 1}`, 'extra', `Найдена конкретная фактология: "${forbidden}". В задании 20 нужен теоретический вывод, а не пример.`);
+                    }
+                    if (wordCount(arg) < 18) {
+                        return createFipiStatus(`Аргумент ${index + 1}`, 'rejected', 'Суждение слишком короткое: нет развернутого механизма.');
+                    }
+                    return createFipiStatus(`Аргумент ${index + 1}`, 'accepted', 'Есть самостоятельное теоретическое суждение.');
+                });
+                const hasWrongExtra = statuses.some(html => html.includes('есть лишняя/ошибочная позиция'));
+                const allAccepted = filledArgs.length === 3 && !hasWrongExtra && rawArgs.every(arg => wordCount(arg) >= 18);
+                const answerText = rawArgs.map((arg, index) => `${index + 1}) ${arg || 'Не заполнено'}`).join('\n\n');
+
+                alertBox.innerHTML = statuses.join('');
+
+                if(!allAccepted) {
                     alertBox.classList.add('alert-warn');
-                    alertBox.innerHTML = `<span class="alert-icon">⚠️</span><span>Аргумент слишком короткий. Добавь причинно-следственную связь (механизм).</span>`;
+                    recordAnswer('20', TASK_20_DATA.prompt, answerText, hasWrongExtra ? 'есть лишняя/ошибочная позиция' : 'не засчитано');
                     userStats.mistakes++; saveStats();
                     return;
                 }
                 
                 alertBox.classList.add('alert-tip');
-                alertBox.innerHTML = `<span class="alert-icon">✅</span><span>Отлично! Фактология не найдена, аргумент теоретический.</span>`;
+                alertBox.innerHTML += `<div class="alert alert-tip mt-8"><span class="alert-icon">✅</span><span>Все три позиции проходят первичный формат: можно сверяться с эталоном.</span></div>`;
                 document.getElementById('t20-expert').classList.remove('hidden');
                 
-                userStats.perfect++;
-                userStats.completed['20']++;
-                saveStats();
-                updateSkill('logic', 20);
+                if(!passedCurrent) {
+                    passedCurrent = true;
+                    recordAnswer('20', TASK_20_DATA.prompt, answerText, 'засчитано');
+                    userStats.perfect++;
+                    userStats.completed['20']++;
+                    saveStats();
+                    updateSkill('logic', 20);
+                }
             });
         };
         
@@ -535,6 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentQ = 0;
         let selectedSentence = null;
         let selectedOption = null;
+        let caseAnswers = [];
         
         const renderContent = () => {
             const CASE_22 = CASE_22_LIST[currentItem];
@@ -597,6 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentQ = 0;
                 selectedSentence = null;
                 selectedOption = null;
+                caseAnswers = [];
                 taskContainer.innerHTML = renderContent();
                 bindEvents();
             });
@@ -649,6 +773,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const q = CASE_22.questions[currentQ];
                     const hasOptions = q.options && q.options.length > 0;
                     const needsTextSelection = q.needsTextSelection !== undefined ? q.needsTextSelection : true;
+                    const openAnswerText = openAnswer ? openAnswer.value.trim() : '';
+                    const answerText = `Вопрос ${currentQ + 1}: ${q.q}\nМаркер: ${needsTextSelection ? (selectedSentence || 'Не выбран') : 'Не требуется'}\nОтвет: ${hasOptions ? (selectedOption || 'Не выбран') : (openAnswerText || 'Не заполнено')}`;
                     
                     let isMarkerCorrect = true;
                     if (needsTextSelection) {
@@ -680,12 +806,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(!isMarkerCorrect) {
                         alertBox.classList.add('alert-error');
                         alertBox.innerHTML = `<span class="alert-icon">❌</span><span>Ошибка! Предложение в тексте выбрано неверно.</span>`;
+                        recordAnswer('22', `[${CASE_22.topicBlock}] Кейс ${currentItem + 1}`, answerText, 'не засчитано');
                         userStats.mistakes++; saveStats();
                     } else if (hasOptions && !isOptionCorrect) {
                         alertBox.classList.add('alert-error');
                         alertBox.innerHTML = `<span class="alert-icon">❌</span><span>Ошибка! Ответ неверный.</span>`;
+                        recordAnswer('22', `[${CASE_22.topicBlock}] Кейс ${currentItem + 1}`, answerText, 'не засчитано');
                         userStats.mistakes++; saveStats();
                     } else {
+                        caseAnswers.push(`${answerText}\nЭталон: ${q.a}`);
                         alertBox.classList.add('alert-tip');
                         if (hasOptions) {
                             alertBox.innerHTML = `<span class="alert-icon">✅</span><span>Верно! ${q.exp}</span>`;
@@ -719,6 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         taskContainer.innerHTML = renderContent();
                         bindEvents();
                     } else {
+                        recordAnswer('22', `[${CASE_22.topicBlock}] Кейс ${currentItem + 1}`, caseAnswers.join('\n\n'), 'кейс решен');
                         userStats.perfect++;
                         userStats.completed['22']++;
                         saveStats();
@@ -735,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TASK 25 (Complex) ---
     function renderTask25() {
         let currentItem = Math.floor(Math.random() * TASK_25_DATA_LIST.length);
+        let passedCurrent = false;
         
         const renderContent = () => {
             const TASK_25_DATA = TASK_25_DATA_LIST[currentItem];
@@ -770,11 +901,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 </div>
+
+                <div class="expert-box mb-16">
+                    <div class="expert-header">К2: ровно три позиции без лишнего</div>
+                    <div class="expert-body" style="background:var(--card)">
+                        <textarea class="textarea" id="t25-k2" placeholder="1) Первая позиция&#10;2) Вторая позиция&#10;3) Третья позиция"></textarea>
+                        <p class="field-hint mt-8">Лишняя четвёртая позиция с ошибкой может испортить весь элемент ответа.</p>
+                    </div>
+                </div>
+
+                <div class="expert-box mb-16">
+                    <div class="expert-header">К3: три развёрнутых примера, привязанных к К2</div>
+                    <div class="expert-body" style="background:var(--card)">
+                        <textarea class="textarea" id="t25-k3" placeholder="1) Пример к первой позиции: субъект + действие + результат...&#10;2) Пример ко второй позиции...&#10;3) Пример к третьей позиции..."></textarea>
+                        <p class="field-hint mt-8">Каждый пример должен быть самостоятельным: кто сделал, что сделал, к чему это привело.</p>
+                    </div>
+                </div>
                 
-                <button class="btn btn-dark btn-full mb-16" id="t25-check">Отправить обоснование</button>
+                <button class="btn btn-dark btn-full mb-16" id="t25-check">Проверить К1/К2/К3</button>
+
+                <div id="t25-checker" class="hidden mb-16"></div>
                 
                 <div id="t25-result" class="hidden">
-                    <div class="alert alert-tip"><span class="alert-icon">🎯</span><span>Отлично! Твое обоснование теперь структурировано.</span></div>
+                    <div class="alert alert-tip"><span class="alert-icon">🎯</span><span>Эталон ниже: сравните свой К1/К2/К3 с образцом и отметьте, где потерялась логика или конкретика.</span></div>
                     
                     <div class="expert-box mt-16 mb-16">
                         <div class="expert-header">Идеальное обоснование (К1)</div>
@@ -799,6 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const bindEvents = () => {
             document.getElementById('t25-selector').addEventListener('change', (e) => {
                 currentItem = parseInt(e.target.value);
+                passedCurrent = false;
                 taskContainer.innerHTML = renderContent();
                 bindEvents();
             });
@@ -807,19 +957,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 const s1 = document.getElementById('t25-s1').value;
                 const s2 = document.getElementById('t25-s2').value;
                 const s3 = document.getElementById('t25-s3').value;
-                
-                if(!s1 || !s2 || !s3) {
-                    alert("Заполни все 3 элемента обоснования!");
+                const k2 = document.getElementById('t25-k2').value;
+                const k3 = document.getElementById('t25-k3').value;
+                const checker = document.getElementById('t25-checker');
+                const k1Text = `${s1} ${s2} ${s3}`;
+                const answerText = `К1:\n1) ${s1 || 'Не заполнено'}\n2) ${s2 || 'Не заполнено'}\n3) ${s3 || 'Не заполнено'}\n\nК2:\n${k2 || 'Не заполнено'}\n\nК3:\n${k3 || 'Не заполнено'}`;
+                const k2Positions = splitAnswerPositions(k2);
+                const k3Examples = splitAnswerPositions(k3);
+                const k1Ok = s1.trim() && s2.trim() && s3.trim() && wordCount(k1Text) >= 35;
+                const k2Ok = k2Positions.length === 3 && !/и\s+т\.?\s*д\.?|прочее|другие|и\s+тому\s+подобное/i.test(k2);
+                const k3Ok = k3Examples.length === 3 && k3Examples.every(ex => wordCount(ex) >= 18) && k3Examples.every(ex => /(в результате|благодаря|что позволило|поэтому|тем самым|из-за этого)/i.test(ex));
+                const statuses = [
+                    createFipiStatus('К1', k1Ok ? 'accepted' : 'rejected', k1Ok ? 'Есть три связанные части и достаточный объём обоснования.' : 'Нужны три заполненных подшага и несколько связанных распространённых предложений.'),
+                    createFipiStatus('К2', k2Ok ? 'accepted' : (k2Positions.length > 3 ? 'extra' : 'rejected'), k2Ok ? 'Ровно три позиции, без открытого перечня.' : `Сейчас позиций: ${k2Positions.length}. Нужно ровно три, без "и т.д." и лишних спорных элементов.`),
+                    createFipiStatus('К3', k3Ok ? 'accepted' : (k3Examples.length > 3 ? 'extra' : 'rejected'), k3Ok ? 'Три примера выглядят развёрнутыми и показывают результат.' : `Сейчас примеров: ${k3Examples.length}. Каждый пример должен быть развёрнутым и содержать итог/значение.`)
+                ];
+
+                checker.className = 'mb-16';
+                checker.innerHTML = statuses.join('');
+                document.getElementById('t25-result').classList.remove('hidden');
+
+                if(!(k1Ok && k2Ok && k3Ok)) {
+                    recordAnswer('25', TASK_25_DATA.topic, answerText, 'не засчитано');
+                    userStats.mistakes++;
+                    saveStats();
                     return;
                 }
-                
-                document.getElementById('t25-result').classList.remove('hidden');
-                userStats.perfect++;
-                userStats.completed['25']++;
-                saveStats();
-                updateSkill('theorist', 10);
-                updateSkill('logic', 10);
-                updateSkill('lawyer', 10);
+
+                if(!passedCurrent) {
+                    passedCurrent = true;
+                    recordAnswer('25', TASK_25_DATA.topic, answerText, 'засчитано');
+                    userStats.perfect++;
+                    userStats.completed['25']++;
+                    saveStats();
+                    updateSkill('theorist', 10);
+                    updateSkill('logic', 10);
+                    updateSkill('lawyer', 10);
+                }
             });
         };
         
@@ -878,6 +1052,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <strong>Пример для ЕГЭ:</strong><br/>
                             ${item.example}
                         </div>
+                        ${item.crossTopics ? `<p class="fact-desc" style="margin-top:10px;"><strong>Закрывает темы:</strong> ${item.crossTopics.join(', ')}</p>` : ''}
+                        ${item.tags ? `<p class="fact-desc" style="margin-top:6px;"><strong>Теги:</strong> ${item.tags.join(', ')}</p>` : ''}
+                        ${item.risk === 'medium' ? `<div class="alert alert-warn mt-8" style="padding:8px;"><span class="alert-icon">⚠️</span><span>Перед публикацией лучше проверить актуальные условия/формулировку.</span></div>` : ''}
                     </div>
                 `;
             });
@@ -914,4 +1091,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize first view
     renderTask('18');
 });
-
